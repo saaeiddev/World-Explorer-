@@ -4,13 +4,20 @@
   const GEO_URL = "https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson";
   const EARTH_TEXTURE = "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg";
   const EARTH_BUMP = "https://unpkg.com/three-globe/example/img/earth-topology.png";
-  const COUNTRY_API = "https://restcountries.com/v3.1";
+  const STATIC_COUNTRIES_URL = "https://raw.githubusercontent.com/mledoze/countries/master/countries.json";
+  const FALLBACK_POPULATION_URL = "https://raw.githubusercontent.com/lorey/list-of-countries/master/json/countries.json";
+  const ANTHEMS_URL = "https://raw.githubusercontent.com/open-assets-hub/national-anthems/main/index.json";
+  const WORLD_BANK_POPULATION = "https://api.worldbank.org/v2/country/";
 
   const state = {
     globe: null,
     features: [],
     featureByCode: new Map(),
     countryCache: new Map(),
+    countryByName: new Map(),
+    fallbackPopulation: new Map(),
+    anthemByCode2: new Map(),
+    dataPromise: null,
     hovered: null,
     selected: null,
     ready: false,
@@ -43,10 +50,14 @@
     language: document.getElementById("stat-language"),
     currency: document.getElementById("stat-currency"),
     area: document.getElementById("stat-area"),
-    timezone: document.getElementById("stat-timezone"),
+    code: document.getElementById("stat-code"),
     continent: document.getElementById("detail-continent"),
     calling: document.getElementById("detail-calling"),
-    driving: document.getElementById("detail-driving"),
+    status: document.getElementById("detail-status"),
+    anthemTitle: document.getElementById("anthem-title"),
+    anthemMeta: document.getElementById("anthem-meta"),
+    anthemPlay: document.getElementById("anthem-play"),
+    anthemAudio: document.getElementById("anthem-audio"),
     maps: document.getElementById("maps-link")
   };
 
@@ -95,8 +106,8 @@
     value === undefined || value === null || value === "" ? fallback : value;
 
   const formatNumber = (value) =>
-    Number.isFinite(value)
-      ? new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value)
+    Number.isFinite(Number(value))
+      ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Number(value))
       : "—";
 
   const formatArea = (value) =>
@@ -200,6 +211,9 @@
   }
 
   function callingCode(country) {
+    if (Array.isArray(country?.callingCodes) && country.callingCodes.length) {
+      return country.callingCodes[0];
+    }
     const root = country?.idd?.root || "";
     const suffix = country?.idd?.suffixes?.[0] || "";
     return root ? root + suffix : "—";
@@ -220,28 +234,122 @@
     }
   }
 
+  async function loadReferenceData() {
+    if (state.dataPromise) return state.dataPromise;
+
+    state.dataPromise = (async () => {
+      const [countryResult, populationResult, anthemResult] = await Promise.allSettled([
+        fetchJson(STATIC_COUNTRIES_URL, 15000),
+        fetchJson(FALLBACK_POPULATION_URL, 12000),
+        fetchJson(ANTHEMS_URL, 12000)
+      ]);
+
+      if (countryResult.status === "fulfilled" && Array.isArray(countryResult.value)) {
+        countryResult.value.forEach((country) => {
+          if (country?.cca3) state.countryCache.set(country.cca3, country);
+          if (country?.name?.common) state.countryByName.set(country.name.common.toLowerCase(), country);
+          if (country?.name?.official) state.countryByName.set(country.name.official.toLowerCase(), country);
+        });
+      }
+
+      if (populationResult.status === "fulfilled" && Array.isArray(populationResult.value)) {
+        populationResult.value.forEach((country) => {
+          const code = country?.alpha_3;
+          const value = Number(country?.population);
+          if (code && Number.isFinite(value)) state.fallbackPopulation.set(code, value);
+        });
+      }
+
+      const anthems = anthemResult.status === "fulfilled" ? anthemResult.value?.anthems : null;
+      if (Array.isArray(anthems)) {
+        anthems.forEach((anthem) => {
+          const code = String(anthem?.iso2 || "").toUpperCase();
+          if (code) state.anthemByCode2.set(code, anthem);
+        });
+      }
+    })();
+
+    return state.dataPromise;
+  }
+
   async function getCountryDetails(feature) {
+    await loadReferenceData();
+
     const code = featureCode(feature);
     const name = featureName(feature);
-    const cacheKey = code && code !== "-99" ? code : name.toLowerCase();
-
-    if (state.countryCache.has(cacheKey)) return state.countryCache.get(cacheKey);
-
-    let data = null;
-    try {
-      if (code && code !== "-99") {
-        const response = await fetchJson(COUNTRY_API + "/alpha/" + encodeURIComponent(code));
-        data = Array.isArray(response) ? response[0] : response;
-      } else {
-        const response = await fetchJson(COUNTRY_API + "/name/" + encodeURIComponent(name) + "?fullText=true");
-        data = Array.isArray(response) ? response[0] : response;
-      }
-    } catch (error) {
-      console.warn("Country detail API unavailable for " + name + ":", error);
+    if (code && code !== "-99" && state.countryCache.has(code)) {
+      return state.countryCache.get(code);
     }
 
-    state.countryCache.set(cacheKey, data);
-    return data;
+    for (const candidate of [name, aliasToWiki.get(name)].filter(Boolean)) {
+      const found = state.countryByName.get(candidate.toLowerCase());
+      if (found) return found;
+    }
+
+    return null;
+  }
+
+  async function getPopulation(feature, country) {
+    const code = country?.cca3 || featureCode(feature);
+    if (!code || code === "-99") return { value: null, year: null };
+
+    try {
+      const data = await fetchJson(
+        WORLD_BANK_POPULATION + encodeURIComponent(code) +
+          "/indicator/SP.POP.TOTL?format=json&mrnev=1&per_page=2",
+        8000
+      );
+      const rows = Array.isArray(data) && Array.isArray(data[1]) ? data[1] : [];
+      const row = rows.find((item) => Number.isFinite(Number(item?.value)));
+      if (row) return { value: Number(row.value), year: row.date || null };
+    } catch (error) {
+      console.warn("World Bank population unavailable for " + code + ":", error);
+    }
+
+    const fallback = state.fallbackPopulation.get(code);
+    return { value: Number.isFinite(fallback) ? fallback : null, year: null };
+  }
+
+  async function getAnthem(feature, country) {
+    await loadReferenceData();
+    const code2 = String(country?.cca2 || featureCode2(feature) || "").toUpperCase();
+    return code2 ? state.anthemByCode2.get(code2) || null : null;
+  }
+
+  function resetAnthem() {
+    if (!el.anthemAudio) return;
+    el.anthemAudio.pause();
+    el.anthemAudio.removeAttribute("src");
+    el.anthemAudio.load();
+    el.anthemTitle.textContent = "—";
+    el.anthemMeta.textContent = "Audio unavailable";
+    el.anthemPlay.disabled = true;
+    el.anthemPlay.innerHTML = '<i data-lucide="play"></i><span>Play</span>';
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function applyAnthem(anthem) {
+    const primary = anthem?.primary;
+    if (!primary?.url) {
+      resetAnthem();
+      return;
+    }
+
+    el.anthemTitle.textContent = primary.anthem_title || anthem.country + " national anthem";
+    el.anthemMeta.textContent = primary.duration_sec
+      ? "Instrumental · " + primary.duration_sec + " sec"
+      : "Instrumental recording";
+    el.anthemAudio.src = primary.url;
+    el.anthemPlay.disabled = false;
+    el.anthemPlay.innerHTML = '<i data-lucide="play"></i><span>Play</span>';
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function setAnthemPlaying(playing) {
+    el.anthemPlay.innerHTML = playing
+      ? '<i data-lucide="pause"></i><span>Pause</span>'
+      : '<i data-lucide="play"></i><span>Play</span>';
+    if (window.lucide) window.lucide.createIcons();
   }
 
   async function getWikipediaProfile(countryName) {
@@ -267,6 +375,7 @@
     const region = featureRegion(feature);
     const fallbackFlag = flagUrl(feature, 160);
 
+    resetAnthem();
     el.name.textContent = name;
     el.region.textContent = region ? region.toUpperCase() : "COUNTRY PROFILE";
     el.flag.src = fallbackFlag;
@@ -278,13 +387,14 @@
 
     el.capital.textContent = "—";
     el.population.textContent = "—";
+    el.population.removeAttribute("title");
     el.language.textContent = "—";
     el.currency.textContent = "—";
     el.area.textContent = "—";
-    el.timezone.textContent = "—";
+    el.code.textContent = featureCode(feature) || "—";
     el.continent.textContent = safe(region);
     el.calling.textContent = "—";
-    el.driving.textContent = "—";
+    el.status.textContent = "—";
     el.maps.href = "https://www.google.com/maps/search/" + encodeURIComponent(name);
     el.summary.textContent = "Loading country details…";
   }
@@ -293,7 +403,7 @@
     if (!country) return;
 
     const name = country?.name?.common || featureName(feature);
-    const flag = country?.flags?.svg || country?.flags?.png || flagUrl(feature, 160);
+    const flag = flagUrl(feature, 160);
 
     el.name.textContent = name;
     el.region.textContent = [country.region, country.subregion].filter(Boolean).join(" / ").toUpperCase() || "COUNTRY PROFILE";
@@ -301,17 +411,20 @@
     el.flag.alt = flag ? "Flag of " + name : "";
     el.flag.style.visibility = flag ? "visible" : "hidden";
     el.capital.textContent = country.capital?.[0] || "—";
-    el.population.textContent = formatNumber(country.population);
     el.language.textContent = countryLanguages(country);
     el.currency.textContent = countryCurrency(country);
     el.area.textContent = formatArea(country.area);
-    el.timezone.textContent = country.timezones?.[0] || "—";
-    el.continent.textContent = country.continents?.[0] || country.region || featureRegion(feature) || "—";
+    el.code.textContent = country.cca3 || featureCode(feature) || "—";
+    el.continent.textContent = country.region || featureRegion(feature) || "—";
     el.calling.textContent = callingCode(country);
-    el.driving.textContent = country.car?.side
-      ? country.car.side.charAt(0).toUpperCase() + country.car.side.slice(1)
-      : "—";
-    el.maps.href = country.maps?.googleMaps || "https://www.google.com/maps/search/" + encodeURIComponent(name);
+    el.status.textContent = country.unMember
+      ? "UN Member"
+      : country.independent === true
+        ? "Sovereign"
+        : country.independent === false
+          ? "Territory"
+          : "—";
+    el.maps.href = "https://www.google.com/maps/search/" + encodeURIComponent(name);
 
     if (Array.isArray(country.latlng) && country.latlng.length >= 2) {
       const lat = Number(country.latlng[0]);
@@ -360,25 +473,39 @@
       console.warn("Country camera transition skipped:", error);
     }
 
-    const [countryResult, wikiResult] = await Promise.allSettled([
-      getCountryDetails(feature),
-      getWikipediaProfile(name)
+    const countryResult = await Promise.resolve(getCountryDetails(feature)).catch(() => null);
+    if (token !== state.selectionToken) return;
+
+    applyCountryDetails(feature, countryResult);
+
+    const [wikiResult, populationResult, anthemResult] = await Promise.allSettled([
+      getWikipediaProfile(name),
+      getPopulation(feature, countryResult),
+      getAnthem(feature, countryResult)
     ]);
 
     if (token !== state.selectionToken) return;
 
-    const country = countryResult.status === "fulfilled" ? countryResult.value : null;
     const wiki = wikiResult.status === "fulfilled" ? wikiResult.value : { summary: "", image: "" };
+    const population = populationResult.status === "fulfilled"
+      ? populationResult.value
+      : { value: null, year: null };
+    const anthem = anthemResult.status === "fulfilled" ? anthemResult.value : null;
 
-    applyCountryDetails(feature, country);
+    if (Number.isFinite(population?.value)) {
+      el.population.textContent = formatNumber(population.value);
+      if (population.year) el.population.title = "World Bank population · " + population.year;
+    }
 
-    const displayName = country?.name?.common || name;
+    applyAnthem(anthem);
+
+    const displayName = countryResult?.name?.common || name;
     el.summary.textContent =
       wiki.summary ||
-      displayName + " is located in " + safe(country?.region || featureRegion(feature), "the world") +
-      ". Core geographic information is available even when external profile services are unavailable.";
+      displayName + " is located in " + safe(countryResult?.region || featureRegion(feature), "the world") +
+      ". Explore its geography, language, currency, population and national symbols below.";
 
-    const imageSource = wiki.image || country?.flags?.png || flagUrl(feature, 160) || EARTH_TEXTURE;
+    const imageSource = wiki.image || flagUrl(feature, 160) || EARTH_TEXTURE;
     el.image.src = imageSource;
     el.image.alt = "View of " + displayName;
     el.image.style.opacity = ".8";
@@ -386,6 +513,10 @@
 
   function hideCountry() {
     ++state.selectionToken;
+    if (el.anthemAudio) {
+      el.anthemAudio.pause();
+      setAnthemPlaying(false);
+    }
     el.panel.classList.remove("open");
     el.panel.classList.add("inactive");
     state.selected = null;
@@ -575,6 +706,7 @@
 
       state.globe.polygonsData(state.features);
       state.ready = true;
+      loadReferenceData().catch((error) => console.warn("Reference data preload failed:", error));
 
       renderQuickCountries();
       el.count.textContent = state.features.length + " geographic regions connected";
@@ -625,6 +757,26 @@
   el.random.addEventListener("click", randomCountry);
   el.reset.addEventListener("click", resetView);
   el.close.addEventListener("click", hideCountry);
+
+  el.anthemPlay.addEventListener("click", async () => {
+    if (!el.anthemAudio.src || el.anthemPlay.disabled) return;
+    try {
+      if (el.anthemAudio.paused) {
+        await el.anthemAudio.play();
+        setAnthemPlaying(true);
+      } else {
+        el.anthemAudio.pause();
+        setAnthemPlaying(false);
+      }
+    } catch (error) {
+      console.warn("Anthem playback failed:", error);
+      el.anthemMeta.textContent = "Audio could not be played";
+    }
+  });
+
+  el.anthemAudio.addEventListener("ended", () => setAnthemPlaying(false));
+  el.anthemAudio.addEventListener("pause", () => setAnthemPlaying(false));
+  el.anthemAudio.addEventListener("play", () => setAnthemPlaying(true));
 
   if (window.lucide) window.lucide.createIcons();
   loadWorld();
