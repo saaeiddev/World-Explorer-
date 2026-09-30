@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const GEO_URL = "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson";
+  const GEO_URL = "https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson";
   const EARTH_TEXTURE = "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg";
   const EARTH_BUMP = "https://unpkg.com/three-globe/example/img/earth-topology.png";
   const COUNTRY_API = "https://restcountries.com/v3.1";
@@ -14,7 +14,8 @@
     hovered: null,
     selected: null,
     ready: false,
-    selectionToken: 0
+    selectionToken: 0,
+    centerCache: new WeakMap()
   };
 
   const el = {
@@ -125,6 +126,19 @@
   }
 
   function featureCenter(feature) {
+    const cached = state.centerCache.get(feature);
+    if (cached) return cached;
+
+    const props = feature?.properties || {};
+    const propertyLat = Number(props.LABEL_Y ?? props.label_y ?? props.LAT_Y ?? props.latitude);
+    const propertyLng = Number(props.LABEL_X ?? props.label_x ?? props.LON_X ?? props.longitude);
+
+    if (Number.isFinite(propertyLat) && Number.isFinite(propertyLng)) {
+      const center = { lat: propertyLat, lng: propertyLng };
+      state.centerCache.set(feature, center);
+      return center;
+    }
+
     const points = flattenCoordinates(feature?.geometry?.coordinates || []);
     if (!points.length) return { lat: 20, lng: 0 };
 
@@ -136,10 +150,9 @@
       maxLng = Math.max(maxLng, lng);
     });
 
-    return {
-      lat: (minLat + maxLat) / 2,
-      lng: (minLng + maxLng) / 2
-    };
+    const center = { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
+    state.centerCache.set(feature, center);
+    return center;
   }
 
   function setCoordinates(lat, lng) {
@@ -515,11 +528,10 @@
       .onPolygonHover((feature) => {
         state.hovered = feature || null;
         if (el.globe) el.globe.style.cursor = feature ? "pointer" : "grab";
-        refreshPolygons();
       })
       .onPolygonClick((feature) => showCountry(feature))
       .onGlobeClick(({ lat, lng }) => setCoordinates(lat, lng))
-      .polygonsTransitionDuration(220);
+      .polygonsTransitionDuration(0);
 
     const controls = state.globe.controls();
     controls.autoRotate = true;
