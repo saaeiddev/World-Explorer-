@@ -2,19 +2,19 @@
   "use strict";
 
   const GEO_URL = "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson";
-  const COUNTRIES_URL = "https://restcountries.com/v3.1/all?fields=name,cca3,capital,region,subregion,population,languages,currencies,area,timezones,latlng,flags,idd,car,maps,continents";
   const EARTH_TEXTURE = "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg";
   const EARTH_BUMP = "https://unpkg.com/three-globe/example/img/earth-topology.png";
+  const COUNTRY_API = "https://restcountries.com/v3.1";
 
   const state = {
     globe: null,
-    countries: [],
-    countryByCode: new Map(),
     features: [],
+    featureByCode: new Map(),
+    countryCache: new Map(),
     hovered: null,
     selected: null,
-    autoRotate: true,
-    ready: false
+    ready: false,
+    selectionToken: 0
   };
 
   const el = {
@@ -49,34 +49,23 @@
     maps: document.getElementById("maps-link")
   };
 
-  const aliases = new Map([
+  const aliasToWiki = new Map([
     ["United States of America", "United States"],
-    ["The Bahamas", "Bahamas"],
-    ["Czechia", "Czechia"],
-    ["Democratic Republic of the Congo", "DR Congo"],
-    ["Republic of the Congo", "Republic of the Congo"],
-    ["Ivory Coast", "Côte d'Ivoire"],
-    ["South Korea", "South Korea"],
-    ["North Korea", "North Korea"],
-    ["East Timor", "Timor-Leste"],
-    ["Swaziland", "Eswatini"],
-    ["Cape Verde", "Cabo Verde"]
+    ["Dem. Rep. Congo", "Democratic Republic of the Congo"],
+    ["Congo", "Republic of the Congo"],
+    ["Czechia", "Czech Republic"],
+    ["eSwatini", "Eswatini"],
+    ["Timor-Leste", "East Timor"]
   ]);
 
-  const safe = (value, fallback = "—") => {
-    if (value === undefined || value === null || value === "") return fallback;
-    return value;
-  };
-
-  const formatNumber = (value) => {
-    if (!Number.isFinite(value)) return "—";
-    return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
-  };
-
-  const formatArea = (value) => {
-    if (!Number.isFinite(value)) return "—";
-    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value) + " km²";
-  };
+  const quickDestinations = [
+    { code: "JPN", name: "Japan" },
+    { code: "USA", name: "United States" },
+    { code: "FRA", name: "France" },
+    { code: "ITA", name: "Italy" },
+    { code: "CAN", name: "Canada" },
+    { code: "KOR", name: "South Korea" }
+  ];
 
   const featureName = (feature) =>
     feature?.properties?.ADMIN ||
@@ -90,28 +79,74 @@
     feature?.properties?.iso_a3 ||
     "";
 
-  function findCountryForFeature(feature) {
-    const code = featureCode(feature);
-    if (code && code !== "-99" && state.countryByCode.has(code)) {
-      return state.countryByCode.get(code);
+  const featureCode2 = (feature) =>
+    feature?.properties?.ISO_A2 ||
+    feature?.properties?.iso_a2 ||
+    "";
+
+  const featureRegion = (feature) =>
+    feature?.properties?.CONTINENT ||
+    feature?.properties?.REGION_UN ||
+    feature?.properties?.region ||
+    "";
+
+  const safe = (value, fallback = "—") =>
+    value === undefined || value === null || value === "" ? fallback : value;
+
+  const formatNumber = (value) =>
+    Number.isFinite(value)
+      ? new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value)
+      : "—";
+
+  const formatArea = (value) =>
+    Number.isFinite(value)
+      ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value) + " km²"
+      : "—";
+
+  function flagUrl(feature, width = 80) {
+    const code2 = featureCode2(feature).toLowerCase();
+    return /^[a-z]{2}$/.test(code2) ? "https://flagcdn.com/w" + width + "/" + code2 + ".png" : "";
+  }
+
+  function flattenCoordinates(coords, points = []) {
+    if (!Array.isArray(coords)) return points;
+    if (
+      coords.length >= 2 &&
+      typeof coords[0] === "number" &&
+      typeof coords[1] === "number"
+    ) {
+      const lng = coords[0];
+      const lat = coords[1];
+      if (Number.isFinite(lat) && Number.isFinite(lng)) points.push([lat, lng]);
+      return points;
     }
+    coords.forEach((item) => flattenCoordinates(item, points));
+    return points;
+  }
 
-    const rawName = featureName(feature);
-    const targetName = aliases.get(rawName) || rawName;
-    const normalized = targetName.toLowerCase();
+  function featureCenter(feature) {
+    const points = flattenCoordinates(feature?.geometry?.coordinates || []);
+    if (!points.length) return { lat: 20, lng: 0 };
 
-    return state.countries.find((country) => {
-      const common = country?.name?.common?.toLowerCase();
-      const official = country?.name?.official?.toLowerCase();
-      return common === normalized || official === normalized;
+    let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+    points.forEach(([lat, lng]) => {
+      minLat = Math.min(minLat, lat);
+      maxLat = Math.max(maxLat, lat);
+      minLng = Math.min(minLng, lng);
+      maxLng = Math.max(maxLng, lng);
     });
+
+    return {
+      lat: (minLat + maxLat) / 2,
+      lng: (minLng + maxLng) / 2
+    };
   }
 
   function setCoordinates(lat, lng) {
-    const latAbs = Math.abs(lat).toFixed(1);
-    const lngAbs = Math.abs(lng).toFixed(1);
-    el.lat.textContent = latAbs + "° " + (lat >= 0 ? "N" : "S");
-    el.lng.textContent = lngAbs + "° " + (lng >= 0 ? "E" : "W");
+    const safeLat = Number.isFinite(lat) ? lat : 20;
+    const safeLng = Number.isFinite(lng) ? lng : 0;
+    el.lat.textContent = Math.abs(safeLat).toFixed(1) + "° " + (safeLat >= 0 ? "N" : "S");
+    el.lng.textContent = Math.abs(safeLng).toFixed(1) + "° " + (safeLng >= 0 ? "E" : "W");
   }
 
   function getCountryColor(feature) {
@@ -128,23 +163,12 @@
 
   function refreshPolygons() {
     if (!state.globe || !state.ready) return;
-    state.globe
-      .polygonCapColor(getCountryColor)
-      .polygonAltitude(getCountryAltitude);
-  }
-
-  async function getWikipediaProfile(countryName) {
     try {
-      const title = encodeURIComponent(countryName.replaceAll(" ", "_"));
-      const response = await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + title);
-      if (!response.ok) throw new Error("Wikipedia summary unavailable");
-      const data = await response.json();
-      return {
-        summary: data.extract || "",
-        image: data.originalimage?.source || data.thumbnail?.source || ""
-      };
-    } catch (_) {
-      return { summary: "", image: "" };
+      state.globe
+        .polygonCapColor(getCountryColor)
+        .polygonAltitude(getCountryAltitude);
+    } catch (error) {
+      console.warn("Polygon refresh skipped:", error);
     }
   }
 
@@ -153,7 +177,7 @@
     if (!currencies.length) return "—";
     return currencies
       .slice(0, 2)
-      .map((item) => item.symbol ? item.name + " (" + item.symbol + ")" : item.name)
+      .map((item) => item?.symbol ? safe(item.name) + " (" + item.symbol + ")" : safe(item?.name))
       .join(", ");
   }
 
@@ -168,53 +192,187 @@
     return root ? root + suffix : "—";
   }
 
-  async function showCountry(feature, country) {
-    if (!country) return;
+  async function fetchJson(url, timeout = 8000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { Accept: "application/json" }
+      });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      return await response.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
-    state.selected = feature || state.features.find((item) => findCountryForFeature(item)?.cca3 === country.cca3) || null;
-    state.autoRotate = false;
-    if (state.globe?.controls()) state.globe.controls().autoRotate = false;
-    refreshPolygons();
+  async function getCountryDetails(feature) {
+    const code = featureCode(feature);
+    const name = featureName(feature);
+    const cacheKey = code && code !== "-99" ? code : name.toLowerCase();
 
-    const name = country.name?.common || featureName(feature);
-    const lat = country.latlng?.[0] ?? 20;
-    const lng = country.latlng?.[1] ?? 0;
+    if (state.countryCache.has(cacheKey)) return state.countryCache.get(cacheKey);
 
-    el.panel.classList.add("open");
-    el.panel.classList.remove("inactive");
-    el.globeLabel.textContent = name.toUpperCase();
-    setCoordinates(lat, lng);
+    let data = null;
+    try {
+      if (code && code !== "-99") {
+        const response = await fetchJson(COUNTRY_API + "/alpha/" + encodeURIComponent(code));
+        data = Array.isArray(response) ? response[0] : response;
+      } else {
+        const response = await fetchJson(COUNTRY_API + "/name/" + encodeURIComponent(name) + "?fullText=true");
+        data = Array.isArray(response) ? response[0] : response;
+      }
+    } catch (error) {
+      console.warn("Country detail API unavailable for " + name + ":", error);
+    }
+
+    state.countryCache.set(cacheKey, data);
+    return data;
+  }
+
+  async function getWikipediaProfile(countryName) {
+    const pageName = aliasToWiki.get(countryName) || countryName;
+    try {
+      const title = encodeURIComponent(pageName.replaceAll(" ", "_"));
+      const data = await fetchJson(
+        "https://en.wikipedia.org/api/rest_v1/page/summary/" + title,
+        7000
+      );
+      return {
+        summary: data?.extract || "",
+        image: data?.originalimage?.source || data?.thumbnail?.source || ""
+      };
+    } catch (error) {
+      console.warn("Wikipedia profile unavailable for " + countryName + ":", error);
+      return { summary: "", image: "" };
+    }
+  }
+
+  function resetCountryFields(feature) {
+    const name = featureName(feature);
+    const region = featureRegion(feature);
+    const fallbackFlag = flagUrl(feature, 160);
 
     el.name.textContent = name;
-    el.region.textContent = [country.region, country.subregion].filter(Boolean).join(" / ").toUpperCase();
-    el.flag.src = country.flags?.svg || country.flags?.png || "";
-    el.flag.alt = "Flag of " + name;
+    el.region.textContent = region ? region.toUpperCase() : "COUNTRY PROFILE";
+    el.flag.src = fallbackFlag;
+    el.flag.alt = fallbackFlag ? "Flag of " + name : "";
+    el.flag.style.visibility = fallbackFlag ? "visible" : "hidden";
+    el.image.src = EARTH_TEXTURE;
     el.image.alt = "View of " + name;
+    el.image.style.opacity = ".45";
+
+    el.capital.textContent = "—";
+    el.population.textContent = "—";
+    el.language.textContent = "—";
+    el.currency.textContent = "—";
+    el.area.textContent = "—";
+    el.timezone.textContent = "—";
+    el.continent.textContent = safe(region);
+    el.calling.textContent = "—";
+    el.driving.textContent = "—";
+    el.maps.href = "https://www.google.com/maps/search/" + encodeURIComponent(name);
+    el.summary.textContent = "Loading country details…";
+  }
+
+  function applyCountryDetails(feature, country) {
+    if (!country) return;
+
+    const name = country?.name?.common || featureName(feature);
+    const flag = country?.flags?.svg || country?.flags?.png || flagUrl(feature, 160);
+
+    el.name.textContent = name;
+    el.region.textContent = [country.region, country.subregion].filter(Boolean).join(" / ").toUpperCase() || "COUNTRY PROFILE";
+    el.flag.src = flag;
+    el.flag.alt = flag ? "Flag of " + name : "";
+    el.flag.style.visibility = flag ? "visible" : "hidden";
     el.capital.textContent = country.capital?.[0] || "—";
     el.population.textContent = formatNumber(country.population);
     el.language.textContent = countryLanguages(country);
     el.currency.textContent = countryCurrency(country);
     el.area.textContent = formatArea(country.area);
     el.timezone.textContent = country.timezones?.[0] || "—";
-    el.continent.textContent = country.continents?.[0] || country.region || "—";
+    el.continent.textContent = country.continents?.[0] || country.region || featureRegion(feature) || "—";
     el.calling.textContent = callingCode(country);
-    el.driving.textContent = country.car?.side ? country.car.side.charAt(0).toUpperCase() + country.car.side.slice(1) : "—";
+    el.driving.textContent = country.car?.side
+      ? country.car.side.charAt(0).toUpperCase() + country.car.side.slice(1)
+      : "—";
     el.maps.href = country.maps?.googleMaps || "https://www.google.com/maps/search/" + encodeURIComponent(name);
 
-    el.summary.textContent = "Loading a concise country profile...";
-    el.image.style.opacity = ".45";
+    if (Array.isArray(country.latlng) && country.latlng.length >= 2) {
+      const lat = Number(country.latlng[0]);
+      const lng = Number(country.latlng[1]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        setCoordinates(lat, lng);
+        try {
+          state.globe?.pointOfView({ lat, lng, altitude: 1.65 }, 900);
+        } catch (error) {
+          console.warn("Camera update skipped:", error);
+        }
+      }
+    }
+  }
 
-    state.globe?.pointOfView({ lat, lng, altitude: 1.65 }, 1200);
+  async function showCountry(feature) {
+    if (!feature) return;
 
-    const wiki = await getWikipediaProfile(name);
-    if (state.selected && country.cca3 !== findCountryForFeature(state.selected)?.cca3) return;
+    const token = ++state.selectionToken;
+    state.selected = feature;
+    state.hovered = null;
 
-    el.summary.textContent = wiki.summary || (name + " is located in " + safe(country.region, "the world") + ". Explore its key geographic and cultural facts through the live profile below.");
-    el.image.src = wiki.image || country.flags?.png || EARTH_TEXTURE;
+    try {
+      if (state.globe?.controls) {
+        const controls = state.globe.controls();
+        if (controls) controls.autoRotate = false;
+      }
+    } catch (error) {
+      console.warn("Auto-rotation could not be paused:", error);
+    }
+
+    refreshPolygons();
+
+    const name = featureName(feature);
+    const center = featureCenter(feature);
+
+    el.panel.classList.add("open");
+    el.panel.classList.remove("inactive");
+    el.globeLabel.textContent = name.toUpperCase();
+    setCoordinates(center.lat, center.lng);
+    resetCountryFields(feature);
+
+    try {
+      state.globe?.pointOfView({ lat: center.lat, lng: center.lng, altitude: 1.72 }, 900);
+    } catch (error) {
+      console.warn("Country camera transition skipped:", error);
+    }
+
+    const [countryResult, wikiResult] = await Promise.allSettled([
+      getCountryDetails(feature),
+      getWikipediaProfile(name)
+    ]);
+
+    if (token !== state.selectionToken) return;
+
+    const country = countryResult.status === "fulfilled" ? countryResult.value : null;
+    const wiki = wikiResult.status === "fulfilled" ? wikiResult.value : { summary: "", image: "" };
+
+    applyCountryDetails(feature, country);
+
+    const displayName = country?.name?.common || name;
+    el.summary.textContent =
+      wiki.summary ||
+      displayName + " is located in " + safe(country?.region || featureRegion(feature), "the world") +
+      ". Core geographic information is available even when external profile services are unavailable.";
+
+    const imageSource = wiki.image || country?.flags?.png || flagUrl(feature, 160) || EARTH_TEXTURE;
+    el.image.src = imageSource;
+    el.image.alt = "View of " + displayName;
     el.image.style.opacity = ".8";
   }
 
   function hideCountry() {
+    ++state.selectionToken;
     el.panel.classList.remove("open");
     el.panel.classList.add("inactive");
     state.selected = null;
@@ -222,28 +380,29 @@
     refreshPolygons();
   }
 
-  function searchCountries(query) {
+  function searchFeatures(query) {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return state.countries
-      .filter((country) => {
-        const common = country.name?.common?.toLowerCase() || "";
-        const official = country.name?.official?.toLowerCase() || "";
-        const capital = country.capital?.join(" ").toLowerCase() || "";
-        return common.includes(q) || official.includes(q) || capital.includes(q) || country.cca3?.toLowerCase() === q;
+
+    return state.features
+      .filter((feature) => {
+        const name = featureName(feature).toLowerCase();
+        const code3 = featureCode(feature).toLowerCase();
+        const code2 = featureCode2(feature).toLowerCase();
+        return name.includes(q) || code3 === q || code2 === q;
       })
       .sort((a, b) => {
-        const an = a.name?.common?.toLowerCase() || "";
-        const bn = b.name?.common?.toLowerCase() || "";
+        const an = featureName(a).toLowerCase();
+        const bn = featureName(b).toLowerCase();
         const ae = an === q ? -1 : an.startsWith(q) ? 0 : 1;
         const be = bn === q ? -1 : bn.startsWith(q) ? 0 : 1;
         return ae - be || an.localeCompare(bn);
       })
-      .slice(0, 7);
+      .slice(0, 8);
   }
 
   function renderSearchResults(query) {
-    const matches = searchCountries(query);
+    const matches = searchFeatures(query);
     el.results.innerHTML = "";
 
     if (!query.trim() || !matches.length) {
@@ -251,21 +410,32 @@
       return;
     }
 
-    matches.forEach((country) => {
+    matches.forEach((feature) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "search-result";
-      button.innerHTML =
-        '<img alt="" src="' + (country.flags?.svg || country.flags?.png || "") + '">' +
-        '<span><strong>' + country.name.common + '</strong><small>' +
-        [country.region, country.capital?.[0]].filter(Boolean).join(" · ") +
-        "</small></span>";
+
+      const image = document.createElement("img");
+      const flag = flagUrl(feature, 80);
+      image.alt = "";
+      image.src = flag || EARTH_TEXTURE;
+
+      const text = document.createElement("span");
+      const title = document.createElement("strong");
+      const subtitle = document.createElement("small");
+
+      title.textContent = featureName(feature);
+      subtitle.textContent = [featureRegion(feature), featureCode(feature)].filter(Boolean).join(" · ");
+
+      text.append(title, subtitle);
+      button.append(image, text);
+
       button.addEventListener("click", () => {
-        const feature = state.features.find((item) => findCountryForFeature(item)?.cca3 === country.cca3);
-        showCountry(feature, country);
-        el.search.value = country.name.common;
+        el.search.value = featureName(feature);
         el.results.hidden = true;
+        showCountry(feature);
       });
+
       el.results.appendChild(button);
     });
 
@@ -273,22 +443,25 @@
   }
 
   function renderQuickCountries() {
-    const codes = ["JPN", "USA", "FRA", "ITA", "CAN", "KOR"];
     el.quick.innerHTML = "";
 
-    codes.forEach((code) => {
-      const country = state.countryByCode.get(code);
-      if (!country) return;
+    quickDestinations.forEach((item) => {
+      const feature = state.featureByCode.get(item.code);
+      if (!feature) return;
+
       const button = document.createElement("button");
       button.type = "button";
       button.className = "quick-country";
-      button.innerHTML =
-        '<img alt="" src="' + (country.flags?.svg || country.flags?.png || "") + '">' +
-        "<span>" + country.name.common + "</span>";
-      button.addEventListener("click", () => {
-        const feature = state.features.find((item) => findCountryForFeature(item)?.cca3 === code);
-        showCountry(feature, country);
-      });
+
+      const image = document.createElement("img");
+      image.alt = "";
+      image.src = flagUrl(feature, 80) || EARTH_TEXTURE;
+
+      const label = document.createElement("span");
+      label.textContent = item.name;
+
+      button.append(image, label);
+      button.addEventListener("click", () => showCountry(feature));
       el.quick.appendChild(button);
     });
   }
@@ -296,21 +469,22 @@
   function resetView() {
     hideCountry();
     state.hovered = null;
-    state.autoRotate = true;
     refreshPolygons();
-    if (state.globe) {
-      state.globe.pointOfView({ lat: 20, lng: 0, altitude: 2.25 }, 1000);
-      if (state.globe.controls()) state.globe.controls().autoRotate = true;
-    }
     setCoordinates(20, 0);
+
+    try {
+      state.globe?.pointOfView({ lat: 20, lng: 0, altitude: 2.25 }, 900);
+      const controls = state.globe?.controls?.();
+      if (controls) controls.autoRotate = true;
+    } catch (error) {
+      console.warn("Reset view skipped:", error);
+    }
   }
 
   function randomCountry() {
-    if (!state.countries.length) return;
-    const candidates = state.countries.filter((country) => Array.isArray(country.latlng) && country.latlng.length === 2);
-    const country = candidates[Math.floor(Math.random() * candidates.length)];
-    const feature = state.features.find((item) => findCountryForFeature(item)?.cca3 === country.cca3);
-    showCountry(feature, country);
+    if (!state.features.length) return;
+    const feature = state.features[Math.floor(Math.random() * state.features.length)];
+    showCountry(feature);
   }
 
   function initGlobe() {
@@ -332,25 +506,19 @@
       .polygonStrokeColor(() => "rgba(133,197,255,0.32)")
       .polygonAltitude(getCountryAltitude)
       .polygonLabel((feature) => {
-        const country = findCountryForFeature(feature);
-        const name = country?.name?.common || featureName(feature);
-        const capital = country?.capital?.[0] || "Select to explore";
+        const name = featureName(feature);
+        const region = featureRegion(feature) || "Select to explore";
         return '<div style="padding:8px 10px;border-radius:10px;background:rgba(4,9,22,.88);border:1px solid rgba(255,255,255,.14);font-family:Inter,sans-serif">' +
           '<div style="font-size:12px;font-weight:700;color:#fff">' + name + '</div>' +
-          '<div style="margin-top:3px;font-size:9px;color:#8da0bd">' + capital + '</div></div>';
+          '<div style="margin-top:3px;font-size:9px;color:#8da0bd">' + region + '</div></div>';
       })
       .onPolygonHover((feature) => {
         state.hovered = feature || null;
         if (el.globe) el.globe.style.cursor = feature ? "pointer" : "grab";
         refreshPolygons();
       })
-      .onPolygonClick((feature) => {
-        const country = findCountryForFeature(feature);
-        if (country) showCountry(feature, country);
-      })
-      .onGlobeClick(({ lat, lng }) => {
-        setCoordinates(lat, lng);
-      })
+      .onPolygonClick((feature) => showCountry(feature))
+      .onGlobeClick(({ lat, lng }) => setCoordinates(lat, lng))
       .polygonsTransitionDuration(220);
 
     const controls = state.globe.controls();
@@ -370,7 +538,11 @@
       }
     };
 
-    new ResizeObserver(resize).observe(el.globe);
+    if ("ResizeObserver" in window) {
+      new ResizeObserver(resize).observe(el.globe);
+    } else {
+      window.addEventListener("resize", resize);
+    }
     resize();
   }
 
@@ -378,35 +550,28 @@
     try {
       initGlobe();
 
-      const [geoResponse, countriesResponse] = await Promise.all([
-        fetch(GEO_URL),
-        fetch(COUNTRIES_URL)
-      ]);
+      const geoResponse = await fetchJson(GEO_URL, 12000);
+      state.features = Array.isArray(geoResponse?.features) ? geoResponse.features : [];
 
-      if (!geoResponse.ok || !countriesResponse.ok) throw new Error("Global datasets unavailable");
+      if (!state.features.length) throw new Error("Country geometry dataset is empty");
 
-      const [geoData, countryData] = await Promise.all([
-        geoResponse.json(),
-        countriesResponse.json()
-      ]);
+      state.featureByCode.clear();
+      state.features.forEach((feature) => {
+        const code = featureCode(feature);
+        if (code && code !== "-99") state.featureByCode.set(code, feature);
+      });
 
-      state.countries = countryData.sort((a, b) => (a.name?.common || "").localeCompare(b.name?.common || ""));
-      state.countryByCode = new Map(state.countries.map((country) => [country.cca3, country]));
-      state.features = geoData.features || [];
       state.globe.polygonsData(state.features);
       state.ready = true;
 
       renderQuickCountries();
-      el.count.textContent = state.countries.length + " countries connected";
+      el.count.textContent = state.features.length + " geographic regions connected";
       el.loading.style.display = "none";
-      refreshPolygons();
-
       el.image.src = EARTH_TEXTURE;
       el.image.alt = "Planet Earth";
+      refreshPolygons();
 
-      window.setTimeout(() => {
-        if (window.lucide) window.lucide.createIcons();
-      }, 0);
+      if (window.lucide) window.lucide.createIcons();
     } catch (error) {
       console.error("World Explorer failed to initialize:", error);
       el.loading.style.display = "none";
@@ -415,15 +580,17 @@
   }
 
   el.search.addEventListener("input", (event) => renderSearchResults(event.target.value));
+
   el.search.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
-      const first = searchCountries(el.search.value)[0];
+      const first = searchFeatures(el.search.value)[0];
       if (first) {
-        const feature = state.features.find((item) => findCountryForFeature(item)?.cca3 === first.cca3);
-        showCountry(feature, first);
+        el.search.value = featureName(first);
         el.results.hidden = true;
+        showCountry(first);
       }
     }
+
     if (event.key === "Escape") {
       el.results.hidden = true;
       el.search.blur();
