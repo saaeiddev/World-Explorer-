@@ -13,8 +13,9 @@ World Explorer turns global discovery into an immersive spatial interface. A hig
 - Interactive 3D Earth with cinematic atmosphere and realistic surface texture
 - Country borders with hover, highlight, and click interactions
 - Smooth camera travel to selected countries
-- Live country data: capital, population, languages, currencies, area, timezone, continent, calling code, and driving side
+- Live country data: capital, current population, languages, currencies, area, region, calling code, country status, and ISO code
 - Wikipedia-powered country summaries and imagery
+- Playable national anthem audio where an open recording is available
 - Global search with keyboard shortcut
 - Popular-destination quick navigation and random-country discovery
 - Premium dark Liquid Glass / glassmorphism visual system
@@ -25,7 +26,9 @@ World Explorer turns global discovery into an immersive spatial interface. A hig
 
 - Globe.gl / Three.js / WebGL
 - Natural Earth country geometry
-- REST Countries API
+- World Bank Indicators API (population)
+- mledoze/countries open country dataset
+- Open Assets Hub national-anthems dataset
 - Wikipedia REST API
 - Lucide Icons
 - HTML5, CSS3, vanilla JavaScript
