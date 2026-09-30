@@ -134,7 +134,7 @@
           <article><i data-lucide="languages"></i><small>Languages</small><strong id="stat-language">—</strong></article>
           <article><i data-lucide="circle-dollar-sign"></i><small>Currency</small><strong id="stat-currency">—</strong></article>
           <article><i data-lucide="maximize"></i><small>Area</small><strong id="stat-area">—</strong></article>
-          <article><i data-lucide="clock-3"></i><small>Timezone</small><strong id="stat-timezone">—</strong></article>
+          <article><i data-lucide="badge-info"></i><small>Country code</small><strong id="stat-code">—</strong></article>
         </div>
 
         <div class="detail-row">
@@ -147,10 +147,24 @@
             <strong id="detail-calling">—</strong>
           </div>
           <div>
-            <small>DRIVES</small>
-            <strong id="detail-driving">—</strong>
+            <small>STATUS</small>
+            <strong id="detail-status">—</strong>
           </div>
         </div>
+
+        <section id="anthem-card" class="anthem-card">
+          <div class="anthem-icon"><i data-lucide="music-2"></i></div>
+          <div class="anthem-copy">
+            <small>NATIONAL ANTHEM</small>
+            <strong id="anthem-title">—</strong>
+            <span id="anthem-meta">Audio unavailable</span>
+          </div>
+          <button id="anthem-play" class="anthem-play" type="button" disabled aria-label="Play national anthem">
+            <i data-lucide="play"></i>
+            <span>Play</span>
+          </button>
+          <audio id="anthem-audio" preload="none"></audio>
+        </section>
 
         <a id="maps-link" class="discover-btn" href="#" target="_blank" rel="noreferrer">
           <span>Explore on map</span>
@@ -167,7 +181,7 @@
       <div class="dock-divider"></div>
       <div>
         <i data-lucide="globe-2"></i>
-        <p><small>DATA SOURCES</small><strong>Natural Earth + REST Countries</strong></p>
+        <p><small>DATA SOURCES</small><strong>Natural Earth + World Bank + Open Datasets</strong></p>
       </div>
       <div class="dock-divider desktop-only"></div>
       <div class="desktop-only">
@@ -179,6 +193,6 @@
 
   <script src="https://unpkg.com/globe.gl@2.45.0/dist/globe.gl.min.js"></script>
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-  <script src="app.js?v=20260930-3"></script>
+  <script src="app.js?v=20260930-4"></script>
 </body>
 </html>
