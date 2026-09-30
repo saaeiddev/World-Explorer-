@@ -91,7 +91,7 @@ body::before{
 .brand em{font-style:normal;color:var(--cyan);font-size:9px;letter-spacing:.35em;margin-top:5px}
 
 .global-search{position:relative;width:100%;justify-self:center}
-.global-search>i{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:17px;color:#96a5bf;z-index:2}
+.global-search>i,.global-search>svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:17px;height:17px;color:#96a5bf;z-index:2;pointer-events:none}
 .global-search input{
   width:100%;height:46px;border:1px solid rgba(255,255,255,.1);outline:none;color:white;border-radius:15px;
   background:rgba(4,9,22,.48);padding:0 68px 0 46px;transition:.25s ease;
