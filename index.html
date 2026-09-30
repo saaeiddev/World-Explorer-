@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#050816" />
+  <meta name="description" content="World Explorer — an immersive 3D country discovery experience." />
+  <title>World Explorer — 3D Interactive Globe</title>
+
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <div class="aurora aurora-a" aria-hidden="true"></div>
+  <div class="aurora aurora-b" aria-hidden="true"></div>
+
+  <div id="app-shell">
+    <header class="topbar glass">
+      <a class="brand" href="#" aria-label="World Explorer home">
+        <span class="brand-mark" aria-hidden="true">
+          <span class="orbit"></span>
+          <span class="planet-dot"></span>
+        </span>
+        <span>
+          <strong>WORLD</strong>
+          <em>EXPLORER</em>
+        </span>
+      </a>
+
+      <div class="global-search">
+        <i data-lucide="search" aria-hidden="true"></i>
+        <input id="country-search" type="search" placeholder="Search any country..." autocomplete="off" />
+        <kbd>⌘ K</kbd>
+        <div id="search-results" class="search-results glass" hidden></div>
+      </div>
+
+      <div class="top-actions">
+        <button id="random-btn" class="icon-btn" type="button" aria-label="Explore a random country">
+          <i data-lucide="shuffle" aria-hidden="true"></i>
+        </button>
+        <button id="reset-btn" class="icon-btn" type="button" aria-label="Reset globe view">
+          <i data-lucide="rotate-ccw" aria-hidden="true"></i>
+        </button>
+        <a class="github-btn" href="https://github.com/saaeiddev/World-Explorer-" target="_blank" rel="noreferrer">
+          <i data-lucide="github" aria-hidden="true"></i>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </header>
+
+    <aside class="explorer-panel glass">
+      <div class="eyebrow"><span></span> GLOBAL EXPLORATION</div>
+      <h1>Discover the world<br><span>country by country.</span></h1>
+      <p class="lead">Rotate the planet, hover over borders, and select a country to open its cultural and geographic profile.</p>
+
+      <div class="panel-section">
+        <div class="section-heading">
+          <span>Popular destinations</span>
+          <small>Quick jump</small>
+        </div>
+        <div id="quick-countries" class="quick-countries"></div>
+      </div>
+
+      <div class="panel-section interaction-help">
+        <div class="section-heading"><span>Navigation</span></div>
+        <div class="help-row"><i data-lucide="mouse-pointer-2"></i><span>Drag to rotate</span></div>
+        <div class="help-row"><i data-lucide="zoom-in"></i><span>Scroll or pinch to zoom</span></div>
+        <div class="help-row"><i data-lucide="map-pin"></i><span>Click a country to explore</span></div>
+      </div>
+
+      <div class="signal-card">
+        <span class="signal-dot"></span>
+        <div>
+          <small>WORLD DATA</small>
+          <strong id="country-count">Loading global dataset...</strong>
+        </div>
+      </div>
+    </aside>
+
+    <main class="world-stage" aria-label="Interactive 3D globe">
+      <div id="globe"></div>
+
+      <div class="globe-title" aria-hidden="true">
+        <span>INTERACTIVE PLANET</span>
+        <strong id="globe-label">EARTH</strong>
+      </div>
+
+      <div class="coordinates glass">
+        <span><i data-lucide="crosshair"></i> <b id="lat-value">20.0° N</b></span>
+        <span><b id="lng-value">0.0° E</b></span>
+      </div>
+
+      <div id="loading" class="loading-state glass">
+        <div class="loader-orbit"><span></span></div>
+        <strong>Initializing World Explorer</strong>
+        <small>Loading borders and country intelligence...</small>
+      </div>
+
+      <div id="globe-error" class="error-state glass" hidden>
+        <i data-lucide="triangle-alert"></i>
+        <strong>World data could not be loaded.</strong>
+        <span>Check your internet connection and reload the page.</span>
+      </div>
+    </main>
+
+    <aside id="country-panel" class="country-panel glass">
+      <div class="country-visual">
+        <img id="country-image" alt="" />
+        <div class="image-overlay"></div>
+        <button id="close-country" class="close-country" type="button" aria-label="Close country details">
+          <i data-lucide="x"></i>
+        </button>
+        <div class="country-heading">
+          <img id="country-flag" class="country-flag" alt="" />
+          <div>
+            <span id="country-region">REGION</span>
+            <h2 id="country-name">Select a country</h2>
+          </div>
+        </div>
+      </div>
+
+      <div class="country-content">
+        <div class="country-intro">
+          <p id="country-summary">Choose a country on the globe to reveal its profile, capital, languages, currency, population and more.</p>
+        </div>
+
+        <div class="stats-grid">
+          <article><i data-lucide="building-2"></i><small>Capital</small><strong id="stat-capital">—</strong></article>
+          <article><i data-lucide="users"></i><small>Population</small><strong id="stat-population">—</strong></article>
+          <article><i data-lucide="languages"></i><small>Languages</small><strong id="stat-language">—</strong></article>
+          <article><i data-lucide="circle-dollar-sign"></i><small>Currency</small><strong id="stat-currency">—</strong></article>
+          <article><i data-lucide="maximize"></i><small>Area</small><strong id="stat-area">—</strong></article>
+          <article><i data-lucide="clock-3"></i><small>Timezone</small><strong id="stat-timezone">—</strong></article>
+        </div>
+
+        <div class="detail-row">
+          <div>
+            <small>CONTINENT</small>
+            <strong id="detail-continent">—</strong>
+          </div>
+          <div>
+            <small>CALLING CODE</small>
+            <strong id="detail-calling">—</strong>
+          </div>
+          <div>
+            <small>DRIVES</small>
+            <strong id="detail-driving">—</strong>
+          </div>
+        </div>
+
+        <a id="maps-link" class="discover-btn" href="#" target="_blank" rel="noreferrer">
+          <span>Explore on map</span>
+          <i data-lucide="arrow-up-right"></i>
+        </a>
+      </div>
+    </aside>
+
+    <footer class="bottom-dock glass">
+      <div>
+        <span class="dock-pulse"></span>
+        <p><small>ACTIVE MODE</small><strong>Country Discovery</strong></p>
+      </div>
+      <div class="dock-divider"></div>
+      <div>
+        <i data-lucide="globe-2"></i>
+        <p><small>DATA SOURCES</small><strong>Natural Earth + REST Countries</strong></p>
+      </div>
+      <div class="dock-divider desktop-only"></div>
+      <div class="desktop-only">
+        <i data-lucide="sparkles"></i>
+        <p><small>EXPERIENCE</small><strong>Realtime 3D WebGL</strong></p>
+      </div>
+    </footer>
+  </div>
+
+  <script src="https://unpkg.com/globe.gl@2.45.0/dist/globe.gl.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
