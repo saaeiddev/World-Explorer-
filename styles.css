@@ -234,6 +234,44 @@ body::before{
 .detail-row div{display:flex;flex-direction:column;gap:5px}
 .detail-row small{font-size:7px;color:#596a84;letter-spacing:.09em}
 .detail-row strong{font-size:9px;color:#bac6d8;font-weight:500}
+
+.anthem-card{
+  margin-top:14px;
+  min-height:74px;
+  border:1px solid rgba(163,108,255,.18);
+  background:linear-gradient(135deg,rgba(163,108,255,.08),rgba(101,232,255,.045));
+  border-radius:15px;
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  padding:11px 12px;
+}
+.anthem-icon{
+  width:36px;height:36px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(163,108,255,.10);
+  border:1px solid rgba(163,108,255,.18);
+}
+.anthem-icon i{width:16px;color:#b891ff}
+.anthem-copy{min-width:0;display:flex;flex-direction:column;gap:3px}
+.anthem-copy small{font-size:7px;letter-spacing:.12em;color:#6f638d}
+.anthem-copy strong{
+  font-size:10px;font-weight:600;color:#e5ddff;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.anthem-copy span{font-size:8px;color:#6f7f98}
+.anthem-play{
+  height:34px;min-width:67px;border-radius:11px;
+  border:1px solid rgba(101,232,255,.18);
+  background:rgba(101,232,255,.07);
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  color:#ccefff;font-size:9px;cursor:pointer;transition:.2s ease;
+}
+.anthem-play i{width:13px}
+.anthem-play:hover:not(:disabled){background:rgba(101,232,255,.13);transform:translateY(-1px)}
+.anthem-play:disabled{opacity:.38;cursor:not-allowed}
+
 .discover-btn{
   margin-top:14px;height:43px;border-radius:13px;border:1px solid rgba(101,232,255,.18);
   background:linear-gradient(90deg,rgba(83,136,255,.14),rgba(101,232,255,.08));
