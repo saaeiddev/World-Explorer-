@@ -117,7 +117,8 @@
 
   function flagUrl(feature, width = 80) {
     const code2 = featureCode2(feature).toLowerCase();
-    return /^[a-z]{2}$/.test(code2) ? "https://flagcdn.com/w" + width + "/" + code2 + ".png" : "";
+    if (!/^[a-z]{2}$/.test(code2)) return "";
+    return "https://raw.githubusercontent.com/lipis/flag-icons/main/flags/4x3/" + code2 + ".svg";
   }
 
   function flattenCoordinates(coords, points = []) {
