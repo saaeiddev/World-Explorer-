@@ -3,8 +3,8 @@
 
   const GEO_URL = "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson";
   const COUNTRIES_URL = "https://restcountries.com/v3.1/all?fields=name,cca3,capital,region,subregion,population,languages,currencies,area,timezones,latlng,flags,idd,car,maps,continents";
-  const EARTH_TEXTURE = "https://unpkg.com/three-globe@2.31.2/example/img/earth-blue-marble.jpg";
-  const EARTH_BUMP = "https://unpkg.com/three-globe@2.31.2/example/img/earth-topology.png";
+  const EARTH_TEXTURE = "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg";
+  const EARTH_BUMP = "https://unpkg.com/three-globe/example/img/earth-topology.png";
 
   const state = {
     globe: null,
@@ -314,7 +314,13 @@
   }
 
   function initGlobe() {
-    state.globe = Globe()(el.globe)
+    try {
+      state.globe = new Globe(el.globe);
+    } catch (_) {
+      state.globe = Globe()(el.globe);
+    }
+
+    state.globe
       .backgroundColor("rgba(0,0,0,0)")
       .globeImageUrl(EARTH_TEXTURE)
       .bumpImageUrl(EARTH_BUMP)
