@@ -235,6 +235,57 @@ body::before{
 .detail-row small{font-size:7px;color:#596a84;letter-spacing:.09em}
 .detail-row strong{font-size:9px;color:#bac6d8;font-weight:500}
 
+
+.identity-card{
+  margin-top:14px;
+  border:1px solid rgba(101,232,255,.14);
+  background:
+    radial-gradient(circle at 12% 0%,rgba(101,232,255,.08),transparent 42%),
+    linear-gradient(145deg,rgba(83,136,255,.055),rgba(163,108,255,.045));
+  border-radius:16px;
+  padding:13px;
+}
+.identity-heading{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px;
+}
+.identity-heading>span{
+  display:flex;align-items:center;gap:6px;
+  font-size:8px;font-weight:700;letter-spacing:.12em;color:#9fb3cf;
+}
+.identity-heading>span i{width:13px;color:var(--cyan)}
+.identity-heading small{font-size:7px;color:#586781}
+.symbol-row{
+  display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;gap:11px;
+  padding:10px;border:1px solid rgba(255,255,255,.065);border-radius:13px;
+  background:rgba(255,255,255,.025);
+}
+.symbol-badge{
+  width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+  font-size:24px;
+  background:linear-gradient(145deg,rgba(101,232,255,.12),rgba(163,108,255,.11));
+  border:1px solid rgba(101,232,255,.16);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 20px rgba(0,0,0,.15);
+}
+.symbol-copy{min-width:0;display:flex;flex-direction:column;gap:4px}
+.symbol-copy small,.known-for-label{
+  font-size:7px;letter-spacing:.11em;color:#60718d;
+}
+.symbol-copy strong{
+  font-family:"Space Grotesk",sans-serif;font-size:12px;font-weight:600;color:#e4efff;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.known-for-wrap{margin-top:11px}
+.known-for-label{display:block;margin-bottom:7px}
+.known-for-list{display:flex;flex-wrap:wrap;gap:6px}
+.known-chip{
+  min-height:26px;padding:5px 8px;border-radius:9px;
+  display:inline-flex;align-items:center;gap:5px;
+  border:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.035);
+  color:#aebdd2;font-size:8px;font-weight:500;
+}
+.known-chip i{width:12px;color:#79dff4}
+
 .anthem-card{
   margin-top:14px;
   min-height:74px;
