@@ -54,6 +54,9 @@
     continent: document.getElementById("detail-continent"),
     calling: document.getElementById("detail-calling"),
     status: document.getElementById("detail-status"),
+    symbolIcon: document.getElementById("country-symbol-icon"),
+    symbolName: document.getElementById("country-symbol-name"),
+    knownFor: document.getElementById("known-for-list"),
     anthemTitle: document.getElementById("anthem-title"),
     anthemMeta: document.getElementById("anthem-meta"),
     anthemPlay: document.getElementById("anthem-play"),
@@ -78,6 +81,105 @@
     { code: "CAN", name: "Canada" },
     { code: "KOR", name: "South Korea" }
   ];
+
+  const identityProfiles = {
+    USA:{symbol:["🗽","Statue of Liberty"],known:["Cinema","Technology","Music","Gaming","Space"]},
+    CAN:{symbol:["🍁","Maple Leaf"],known:["Nature","Film","Technology","Music","Winter Sports"]},
+    MEX:{symbol:["🌵","Aztec & Cactus Heritage"],known:["Cuisine","Music","Cinema","Art","Tourism"]},
+    BRA:{symbol:["✝️","Christ the Redeemer"],known:["Football","Music","Carnival","Nature","Coffee"]},
+    ARG:{symbol:["☀️","Sun of May"],known:["Football","Tango","Cinema","Wine","Literature"]},
+    CHL:{symbol:["🗿","Rapa Nui Moai"],known:["Wine","Astronomy","Mining","Nature","Literature"]},
+    PER:{symbol:["🏔️","Machu Picchu"],known:["Heritage","Cuisine","Textiles","Nature","Tourism"]},
+    COL:{symbol:["☕","Coffee Culture"],known:["Coffee","Music","Art","Nature","Cycling"]},
+    CUB:{symbol:["🎺","Havana & Classic Cars"],known:["Music","Dance","Cigars","Classic Cars","Cinema"]},
+
+    GBR:{symbol:["👑","British Crown"],known:["Music","Cinema","Literature","Technology","Design"]},
+    FRA:{symbol:["🗼","Eiffel Tower"],known:["Art","Cinema","Fashion","Cuisine","Aerospace"]},
+    DEU:{symbol:["🏰","Brandenburg Gate"],known:["Automotive","Engineering","Medicine","Music","Industry"]},
+    ITA:{symbol:["🏛️","Colosseum"],known:["Art","Fashion","Automotive","Cinema","Cuisine"]},
+    ESP:{symbol:["💃","Flamenco"],known:["Art","Football","Cinema","Cuisine","Tourism"]},
+    PRT:{symbol:["⛵","Age of Exploration"],known:["Music","Football","Wine","Tiles & Art","Tourism"]},
+    NLD:{symbol:["🌷","Tulip & Windmill"],known:["Design","Art","Cycling","Technology","Agriculture"]},
+    BEL:{symbol:["🍫","Belgian Chocolate"],known:["Chocolate","Comics","Design","Beer Culture","EU Institutions"]},
+    CHE:{symbol:["⌚","Swiss Watch"],known:["Watches","Medicine","Finance","Engineering","Chocolate"]},
+    AUT:{symbol:["🎼","Vienna & Classical Music"],known:["Classical Music","Art","Architecture","Engineering","Winter Sports"]},
+    SWE:{symbol:["🪑","Scandinavian Design"],known:["Design","Music","Gaming","Technology","Automotive"]},
+    NOR:{symbol:["⛰️","Norwegian Fjords"],known:["Nature","Energy","Maritime","Winter Sports","Design"]},
+    DNK:{symbol:["🧱","LEGO Brick"],known:["Design","Architecture","Gaming","Renewable Energy","Cuisine"]},
+    FIN:{symbol:["♨️","Sauna"],known:["Technology","Gaming","Education","Design","Winter Culture"]},
+    ISL:{symbol:["🌋","Volcano & Northern Lights"],known:["Nature","Music","Geothermal Energy","Literature","Tourism"]},
+    IRL:{symbol:["☘️","Shamrock"],known:["Literature","Music","Technology","Film","Culture"]},
+    POL:{symbol:["🦅","White Eagle"],known:["History","Gaming","Music","Engineering","Cuisine"]},
+    CZE:{symbol:["🏰","Prague Castle"],known:["Architecture","Beer Culture","Engineering","Gaming","Glass Art"]},
+    GRC:{symbol:["🏛️","Parthenon"],known:["Ancient History","Philosophy","Art","Cuisine","Tourism"]},
+    HUN:{symbol:["♨️","Budapest Thermal Baths"],known:["Music","Architecture","Science","Cuisine","Film"]},
+    ROU:{symbol:["🏰","Carpathian Castles"],known:["Folklore","Technology","Nature","Cinema","Engineering"]},
+    UKR:{symbol:["🌻","Sunflower"],known:["Agriculture","Technology","Music","Engineering","Art"]},
+    RUS:{symbol:["🪆","Matryoshka"],known:["Literature","Ballet","Classical Music","Space","Engineering"]},
+
+    JPN:{symbol:["⛩️","Torii Gate & Mount Fuji"],known:["Technology","Gaming","Automotive","Anime","Cinema"]},
+    KOR:{symbol:["🏯","Korean Heritage"],known:["Technology","Gaming","Cinema","Music","Automotive"]},
+    CHN:{symbol:["🐉","Dragon & Great Wall"],known:["Manufacturing","Technology","Cuisine","Cinema","Ancient Culture"]},
+    IND:{symbol:["🕌","Taj Mahal"],known:["Cinema","Technology","Medicine","Cuisine","Space"]},
+    IDN:{symbol:["🛕","Borobudur"],known:["Nature","Cuisine","Textiles","Tourism","Music"]},
+    THA:{symbol:["🛕","Thai Temple"],known:["Cuisine","Tourism","Cinema","Wellness","Crafts"]},
+    VNM:{symbol:["🌾","Rice Terraces"],known:["Cuisine","Manufacturing","Coffee","Nature","Technology"]},
+    PHL:{symbol:["🌴","Tropical Islands"],known:["Music","Cinema","BPO","Nature","Cuisine"]},
+    MYS:{symbol:["🏙️","Petronas Towers"],known:["Technology","Manufacturing","Cuisine","Tourism","Finance"]},
+    SGP:{symbol:["🦁","Merlion"],known:["Technology","Finance","Architecture","Medicine","Aviation"]},
+    PAK:{symbol:["🏔️","K2"],known:["Textiles","Cricket","Music","Cuisine","Nature"]},
+    BGD:{symbol:["🧵","Textile Heritage"],known:["Textiles","Garments","River Culture","Cuisine","Crafts"]},
+
+    IRN:{symbol:["🦁","Persian Heritage"],known:["Art","Cinema","Poetry","Medicine","Automotive"]},
+    TUR:{symbol:["🧿","Nazar & Bosphorus"],known:["Cinema","Cuisine","Textiles","Tourism","Automotive"]},
+    ARE:{symbol:["🏙️","Burj Khalifa"],known:["Architecture","Aviation","Tourism","Technology","Luxury"]},
+    SAU:{symbol:["🕋","Mecca & Desert Heritage"],known:["Energy","Architecture","Tourism","Technology","Culture"]},
+    QAT:{symbol:["🏙️","Doha Skyline"],known:["Aviation","Architecture","Sports","Energy","Media"]},
+    ISR:{symbol:["💡","Innovation Ecosystem"],known:["Technology","Medicine","Cybersecurity","Agriculture","Research"]},
+    JOR:{symbol:["🏜️","Petra"],known:["Heritage","Tourism","Cinema Locations","Crafts","Cuisine"]},
+    LBN:{symbol:["🌲","Cedar Tree"],known:["Cuisine","Music","Design","History","Literature"]},
+
+    EGY:{symbol:["🔺","Pyramids of Giza"],known:["Ancient History","Cinema","Music","Tourism","Archaeology"]},
+    MAR:{symbol:["🕌","Marrakesh & Mosaic Art"],known:["Crafts","Cuisine","Tourism","Textiles","Cinema Locations"]},
+    DZA:{symbol:["🏜️","Sahara"],known:["Energy","Music","Desert Culture","Cuisine","Football"]},
+    TUN:{symbol:["🏛️","Carthage"],known:["History","Tourism","Cinema Locations","Cuisine","Crafts"]},
+    NGA:{symbol:["🎬","Nollywood"],known:["Cinema","Music","Fashion","Technology","Literature"]},
+    ZAF:{symbol:["🌈","Rainbow Nation"],known:["Nature","Mining","Wine","Cinema","Sports"]},
+    KEN:{symbol:["🦁","Safari Wildlife"],known:["Wildlife","Athletics","Tourism","Coffee","Technology"]},
+    ETH:{symbol:["☕","Coffee Origin Heritage"],known:["Coffee","History","Athletics","Music","Cuisine"]},
+    GHA:{symbol:["🧵","Kente Cloth"],known:["Textiles","Music","Cocoa","Art","Film"]},
+
+    AUS:{symbol:["🦘","Kangaroo"],known:["Nature","Cinema","Mining","Medicine","Sports"]},
+    NZL:{symbol:["🥝","Kiwi & Māori Heritage"],known:["Nature","Cinema","Tourism","Agriculture","Adventure Sports"]}
+  };
+
+  const highlightIcons = {
+    "Cinema":"film","Technology":"cpu","Music":"music-2","Gaming":"gamepad-2","Space":"rocket",
+    "Nature":"mountain","Winter Sports":"snowflake","Cuisine":"utensils","Art":"palette","Tourism":"plane",
+    "Football":"trophy","Tango":"music","Wine":"wine","Literature":"book-open","Astronomy":"telescope",
+    "Mining":"pickaxe","Coffee":"coffee","Cycling":"bike","Dance":"music-2","Classic Cars":"car-front",
+    "Fashion":"shirt","Aerospace":"plane","Automotive":"car-front","Engineering":"wrench","Medicine":"heart-pulse",
+    "Industry":"factory","Design":"pen-tool","Agriculture":"leaf","Finance":"landmark","Architecture":"building-2",
+    "Renewable Energy":"wind","Energy":"zap","Maritime":"ship","Classical Music":"music-2","Chocolate":"cookie",
+    "Comics":"book-open","Beer Culture":"beer","Watches":"watch","Education":"graduation-cap","Winter Culture":"snowflake",
+    "Geothermal Energy":"flame","Film":"film","History":"landmark","Glass Art":"gem","Ancient History":"landmark",
+    "Philosophy":"book-open","Science":"flask-conical","Folklore":"sparkles","Ballet":"person-standing",
+    "Anime":"sparkles","Manufacturing":"factory","Ancient Culture":"landmark","Textiles":"scissors",
+    "Wellness":"heart-pulse","Crafts":"hammer","BPO":"headphones","Aviation":"plane","Cricket":"trophy",
+    "Garments":"shirt","River Culture":"waves","Poetry":"book-open","Luxury":"gem","Sports":"trophy",
+    "Media":"radio","Cybersecurity":"shield-check","Research":"microscope","Cinema Locations":"camera",
+    "Archaeology":"shovel","Desert Culture":"sun","Nollywood":"film","Cocoa":"leaf","Wildlife":"paw-print",
+    "Athletics":"medal","Adventure Sports":"mountain","River Culture":"waves"
+  };
+
+  const regionDefaults = {
+    "Africa":{symbol:["🌍","Cultural & Natural Heritage"],known:["Culture","Music","Nature","Cuisine"]},
+    "Asia":{symbol:["🏯","Cultural Heritage"],known:["Culture","Cuisine","Technology","Art"]},
+    "Europe":{symbol:["🏛️","Historic Heritage"],known:["Art","Architecture","Culture","Technology"]},
+    "North America":{symbol:["🌎","Modern & Cultural Heritage"],known:["Culture","Technology","Music","Nature"]},
+    "South America":{symbol:["🌎","Andean & Latin Heritage"],known:["Music","Nature","Cuisine","Football"]},
+    "Oceania":{symbol:["🌊","Pacific Heritage"],known:["Nature","Culture","Tourism","Sports"]}
+  };
 
   const featureName = (feature) =>
     feature?.properties?.ADMIN ||
@@ -104,6 +206,38 @@
 
   const safe = (value, fallback = "—") =>
     value === undefined || value === null || value === "" ? fallback : value;
+
+  function getIdentityProfile(feature, country) {
+    const code = country?.cca3 || featureCode(feature);
+    if (identityProfiles[code]) return identityProfiles[code];
+
+    const region = country?.region || featureRegion(feature);
+    return regionDefaults[region] || {
+      symbol:["🌐","National Heritage"],
+      known:["Culture","Nature","Cuisine","Art"]
+    };
+  }
+
+  function renderCountryIdentity(feature, country = null) {
+    const profile = getIdentityProfile(feature, country);
+    el.symbolIcon.textContent = profile.symbol[0];
+    el.symbolName.textContent = profile.symbol[1];
+    el.knownFor.innerHTML = "";
+
+    profile.known.slice(0, 6).forEach((label) => {
+      const chip = document.createElement("span");
+      chip.className = "known-chip";
+
+      const icon = document.createElement("i");
+      icon.setAttribute("data-lucide", highlightIcons[label] || "sparkles");
+
+      const textNode = document.createTextNode(label);
+      chip.append(icon, textNode);
+      el.knownFor.appendChild(chip);
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+  }
 
   const formatNumber = (value) =>
     Number.isFinite(Number(value))
@@ -377,6 +511,7 @@
     const fallbackFlag = flagUrl(feature, 160);
 
     resetAnthem();
+    renderCountryIdentity(feature);
     el.name.textContent = name;
     el.region.textContent = region ? region.toUpperCase() : "COUNTRY PROFILE";
     el.flag.src = fallbackFlag;
@@ -406,6 +541,7 @@
     const name = country?.name?.common || featureName(feature);
     const flag = flagUrl(feature, 160);
 
+    renderCountryIdentity(feature, country);
     el.name.textContent = name;
     el.region.textContent = [country.region, country.subregion].filter(Boolean).join(" / ").toUpperCase() || "COUNTRY PROFILE";
     el.flag.src = flag;
